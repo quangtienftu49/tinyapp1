@@ -6,7 +6,10 @@ const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended: true}));
 
 const cookieSession = require('cookie-session');
-app.use(cookieSession({name: 'session', secret: 'monkeys-gym-mango-coconut'}));
+app.use(cookieSession({
+  name: 'session', 
+  keys: ['7f69fa85-caec-4d9c-acd7-eebdccb368d5', 'f13b4d38-41c4-46d3-9ef6-8836d03cd8eb']
+}));
 
 const bcrypt = require('bcryptjs');
 
@@ -141,27 +144,27 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
 // Display login template
 app.get('/login', (req, res) => {
-  if (req.session.userID) {
-    res.redirect('/urls');
-    return;
-  }
-
   const templateVars = {user: users[req.session.userID]};
   res.render('login', templateVars);
 });
 
 // Add route post for login
-app.post('/login', (req, res) => {
+app.post("/login", (req, res) => {
   const candidateEmail = req.body.email;
   const candidatePassword = req.body.password;
 
   const user = getUserByEmail(candidateEmail, users);
 
-  if (user && bcrypt.compareSync(candidatePassword, user.password)) {
-    req.session.userID = user.userID;
-    res.redirect('/urls');
-  } else {
+  if (user) {
+    if (bcrypt.compareSync(candidatePassword, user.password)) {
+      req.session["userID"] = user.id;
+      res.redirect('/urls');
+    } else {
     const errorMessage = 'Login credentials not valid.';
+    res.status(401).render('urls_error', {user: users[req.session.userID], errorMessage});
+    }
+  } else {
+    const errorMessage = 'Please register!';
     res.status(401).render('urls_error', {user: users[req.session.userID], errorMessage});
   }
 });
@@ -173,25 +176,12 @@ app.get('/logout', (req, res) => {
 
 // Post logout
 app.post('/logout', (req, res) => {
-  // res.clearCookie('session');
-  // res.clearCookie('session.sig');
-
   req.session = null;
-
-  // req.session['user_id'] = null;
-  // req.session['session.sig'] = null;
   res.redirect('/urls');
 });
 
-
-
 // Ruote to get the registration form
 app.get('/register', (req, res) => {
-  if (req.session.userID) {
-    res.redirect('/urls');
-    return;
-  }
-
   const templateVars = {user: users[req.session.userID]};
   res.render('registration', templateVars);
 });
@@ -210,7 +200,7 @@ app.post('/register', (req, res) => {
         email: newEmail,
         password: bcrypt.hashSync(newPassword, 10)
       };
-      req.session.userID = userID;
+      req.session["userID"] = userID;
       res.redirect('/urls');
     } else {
       const errorMessage = 'This email address is already registered.';
@@ -218,7 +208,7 @@ app.post('/register', (req, res) => {
     }
 
   } else {
-    const errorMessage = 'Please enter email and password.';
+    const errorMessage = 'Please enter email and/or password.';
     res.status(400).render('urls_error', {user: users[req.session.userID], errorMessage});
   }
 });
